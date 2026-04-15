@@ -4,14 +4,16 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: 2/6 (Ouvido) — sub-etapa 1 concluída
+- Fase: 2/6 (Ouvido) — sub-etapas 1 e 2 concluídas
 - Último trabalho:
-  - `src/voice/listener.py` — captura do microfone em thread de áudio, empurra chunks int16 na `fila_audio` via `loop.call_soon_threadsafe`
-  - `src/voice/wake_word.py` — openWakeWord consome a fila; no hit toca bip e grava ~5s de comando
-  - `src/voice/earcons.py` — bip senoidal 880Hz/120ms não-bloqueante
-  - `main.py` — substituiu heartbeat por tasks listener + wake_word; shutdown chama `listener.stop()`
-  - `config.yaml` — reestruturou `voice.wake_word` como dict (model_path, fallback_model, threshold, cooldown), adicionou `voice.audio` (chunk_samples, queue_maxsize, input_device), `voice.command.duration_seconds` e `voice.earcons`
-- Próximo passo: Fase 2 sub-etapa 2 — Silero VAD + Whisper STT + Piper TTS
+  - `src/voice/vad.py` — `SileroVAD` (onnx), roda em thread via `asyncio.to_thread`, converte int16→float32, concatena só segmentos com voz (threshold + min_silence_ms + min_speech_ms)
+  - `src/voice/stt.py` — `WhisperSTT` com faster-whisper; detecta idioma automático (PT/EN) se `language: auto`; fallback CUDA→CPU se cuBLAS falhar
+  - `src/voice/earcons.py` — adicionou `tocar_processando()` (440Hz grave enquanto Whisper roda)
+  - `src/voice/wake_word.py` — pós-captura agora roda VAD → (se tem voz) earcon processando → Whisper → print `[STT] (idioma) texto` + `put` em `fila_transcricao`
+  - `main.py` — injeta `fila_transcricao` no detector
+  - `config.yaml` — adicionou `voice.stt.compute_type/beam_size/language=auto`, `voice.vad.min_speech_ms`, earcons de processando
+  - Sub-etapa 1 anterior: listener, wake_word base, bip, fix `sys.path`, `inference_framework: onnx` (tflite-runtime não existe no Windows)
+- Próximo passo: Fase 2 sub-etapa 3 — Piper TTS para responder por voz (consumir fila do brain quando houver)
 - Pendência conhecida: modelo custom de "Bolha" pro openWakeWord ainda não foi treinado; rodando com fallback `hey_jarvis` até o treino
 
 ## Decisões tomadas
@@ -55,10 +57,9 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Próximos passos
 - Treinar modelo custom "bolha.onnx" e apontar em `voice.wake_word.model_path`
-- Silero VAD após wake word: corta silêncio antes de mandar pro Whisper
-- Whisper (faster-whisper) consumindo `fila_audio` pós-VAD e publicando em `fila_transcricao`
-- Piper TTS consumindo respostas do brain
-- Som de "processando" enquanto o LLM roda (earcons.py)
+- Piper TTS consumindo respostas do brain (fila a criar)
+- Streaming VAD em vez de janela fixa de 5s (corta quando o usuário termina de falar)
+- Fase 3: Ollama + Phi-3 Mini consumindo `fila_transcricao` e publicando `fila_acoes`
 
 ## Regras pro Claude Code
 1. Sempre ler o CLAUDE.md antes de começar

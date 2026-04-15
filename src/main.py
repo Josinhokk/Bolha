@@ -80,7 +80,9 @@ class Bolha:
         # Import tardio: openwakeword carrega modelos pesados.
         from src.voice.wake_word import WakeWordDetector
 
-        detector = WakeWordDetector(self.fila_audio, self.config)
+        detector = WakeWordDetector(
+            self.fila_audio, self.config, transcricao_queue=self.fila_transcricao
+        )
         self._tasks.append(asyncio.create_task(detector.run(), name="wake_word"))
 
         LOGGER.info("Bolha pronto. Aguardando wake word (Ctrl+C para sair).")

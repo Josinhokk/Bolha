@@ -17,7 +17,9 @@ from typing import Any
 
 import numpy as np
 
-from src.voice.earcons import tocar_bip
+from src.voice.earcons import tocar_bip, tocar_processando
+from src.voice.stt import WhisperSTT
+from src.voice.vad import SileroVAD
 
 LOGGER = logging.getLogger("bolha.voice.wake_word")
 
@@ -29,6 +31,9 @@ class WakeWordDetector:
         self,
         audio_queue: asyncio.Queue[np.ndarray],
         config: dict[str, Any],
+        transcricao_queue: asyncio.Queue[str] | None = None,
+        vad: SileroVAD | None = None,
+        stt: WhisperSTT | None = None,
     ) -> None:
         # Import tardio: openwakeword é pesado e pode não estar instalado em dev.
         from openwakeword.model import Model
@@ -38,6 +43,10 @@ class WakeWordDetector:
         ww = vcfg["wake_word"]
 
         self._queue = audio_queue
+        self._transcricao_queue = transcricao_queue
+        self._vad = vad if vad is not None else SileroVAD(config)
+        self._stt = stt if stt is not None else WhisperSTT(config)
+
         self._sample_rate: int = vcfg["sample_rate"]
         self._chunk_samples: int = vcfg["audio"]["chunk_samples"]
         self._threshold: float = ww.get("threshold", 0.5)
@@ -132,19 +141,40 @@ class WakeWordDetector:
                 tocar_bip(self._config)
 
                 audio = await self._capturar_comando()
-                rms = float(np.sqrt(np.mean(audio.astype(np.float32) ** 2)))
-                duracao_s = len(audio) / self._sample_rate
-                print(
-                    f"[wake+cmd] amostras={len(audio)} duração={duracao_s:.2f}s "
-                    f"dtype={audio.dtype} rms={rms:.1f}"
-                )
-                LOGGER.info(
-                    "Comando capturado: %d amostras, %.2fs, rms=%.1f. "
-                    "(STT entra na sub-etapa 2.)",
-                    len(audio),
-                    duracao_s,
-                    rms,
-                )
+                await self._processar_comando(audio)
+
                 # Reseta o buffer interno do openWakeWord pra evitar eco da detecção.
                 if hasattr(self._model, "reset"):
                     self._model.reset()
+
+    async def _processar_comando(self, audio_int16: np.ndarray) -> None:
+        """Pipeline pós-captura: VAD → STT → print + fila de transcrição."""
+        duracao_s = len(audio_int16) / self._sample_rate
+        LOGGER.info("Comando bruto capturado: %.2fs. Passando pelo VAD...", duracao_s)
+
+        voz = await self._vad.filtrar_voz(audio_int16)
+        if voz is None or len(voz) == 0:
+            LOGGER.info("VAD não detectou voz no comando — descartando.")
+            print("[VAD] sem voz, ignorado.")
+            return
+
+        tocar_processando(self._config)
+        LOGGER.info("Enviando %.2fs de voz pro Whisper...", len(voz) / self._sample_rate)
+
+        try:
+            texto, idioma = await self._stt.transcrever(voz)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Falha na transcrição: %s", exc)
+            print(f"[STT] erro: {exc}")
+            return
+
+        if not texto:
+            LOGGER.info("Whisper devolveu transcrição vazia.")
+            print("[STT] (vazio)")
+            return
+
+        print(f"[STT] ({idioma}) {texto}")
+        LOGGER.info("Transcrição (%s): %s", idioma, texto)
+
+        if self._transcricao_queue is not None:
+            await self._transcricao_queue.put(texto)

@@ -38,15 +38,21 @@ voice:
     wake_freq_hz: 880
     wake_duration_ms: 120
     wake_amplitude: 0.2
+    processing_freq_hz: 440    # tom mais grave = Whisper rodando
+    processing_duration_ms: 90
+    processing_amplitude: 0.18
   stt:
     model: base              # tiny, base, small, medium, large
-    device: cuda             # cuda ou cpu
-    language: pt
+    device: cuda             # cuda ou cpu (cuda exige cuBLAS/cuDNN)
+    compute_type: auto       # auto | float16 | int8_float16 | int8 | float32
+    language: pt             # pt travado evita alucinação em áudios curtos. use "auto" pra PT+EN
+    beam_size: 5
   tts:
     voice: pt_BR-faber-medium
   vad:
     threshold: 0.5
     min_silence_ms: 500
+    min_speech_ms: 250         # descarta "voz" menor que isso (provável ruído)
 
 brain:
   provider: ollama        # ollama | anthropic (futuro)
