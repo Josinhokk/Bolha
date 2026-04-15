@@ -19,12 +19,28 @@ logging:
   format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 voice:
-  wake_word: bolha
   sample_rate: 16000
   channels: 1
+  audio:
+    chunk_samples: 1280      # 80ms @ 16kHz — tamanho esperado pelo openWakeWord
+    queue_maxsize: 200       # frames em buffer antes de descartar
+    input_device: null       # null = device padrão do sistema
+  wake_word:
+    name: bolha
+    model_path: null         # caminho .onnx do modelo custom (treinar na etapa "Bolha")
+    fallback_model: hey_jarvis  # usado enquanto não temos modelo próprio
+    inference_framework: onnx  # 'onnx' no Windows (tflite-runtime não tem wheel oficial)
+    threshold: 0.5
+    cooldown_seconds: 2.0    # ignora detecções repetidas neste intervalo
+  command:
+    duration_seconds: 5      # tempo de gravação do comando após o wake word
+  earcons:
+    wake_freq_hz: 880
+    wake_duration_ms: 120
+    wake_amplitude: 0.2
   stt:
-    model: base           # tiny, base, small, medium, large
-    device: cuda          # cuda ou cpu
+    model: base              # tiny, base, small, medium, large
+    device: cuda             # cuda ou cpu
     language: pt
   tts:
     voice: pt_BR-faber-medium

@@ -4,9 +4,15 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: 1/6 (Fundação)
-- Último trabalho: Estrutura inicial do repositório, config base, main.py com asyncio + graceful shutdown
-- Próximo passo: Fase 2 — Ouvido (captura de áudio, wake word, STT/VAD/TTS)
+- Fase: 2/6 (Ouvido) — sub-etapa 1 concluída
+- Último trabalho:
+  - `src/voice/listener.py` — captura do microfone em thread de áudio, empurra chunks int16 na `fila_audio` via `loop.call_soon_threadsafe`
+  - `src/voice/wake_word.py` — openWakeWord consome a fila; no hit toca bip e grava ~5s de comando
+  - `src/voice/earcons.py` — bip senoidal 880Hz/120ms não-bloqueante
+  - `main.py` — substituiu heartbeat por tasks listener + wake_word; shutdown chama `listener.stop()`
+  - `config.yaml` — reestruturou `voice.wake_word` como dict (model_path, fallback_model, threshold, cooldown), adicionou `voice.audio` (chunk_samples, queue_maxsize, input_device), `voice.command.duration_seconds` e `voice.earcons`
+- Próximo passo: Fase 2 sub-etapa 2 — Silero VAD + Whisper STT + Piper TTS
+- Pendência conhecida: modelo custom de "Bolha" pro openWakeWord ainda não foi treinado; rodando com fallback `hey_jarvis` até o treino
 
 ## Decisões tomadas
 - Linguagem: Python 3.11+
@@ -45,12 +51,14 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 (Atualizar a cada sessão com bugs encontrados e como foram resolvidos)
 
 ## Problemas conhecidos
-- Nenhum ainda
+- Sem modelo custom de "Bolha" (openWakeWord) — usando `hey_jarvis` como fallback temporário
 
 ## Próximos passos
-- Fase 2: configurar sounddevice, openWakeWord, Whisper, Silero VAD, Piper TTS
-- Integrar pipeline wake word → VAD → STT
-- Alimentar asyncio.Queue entre listener e brain
+- Treinar modelo custom "bolha.onnx" e apontar em `voice.wake_word.model_path`
+- Silero VAD após wake word: corta silêncio antes de mandar pro Whisper
+- Whisper (faster-whisper) consumindo `fila_audio` pós-VAD e publicando em `fila_transcricao`
+- Piper TTS consumindo respostas do brain
+- Som de "processando" enquanto o LLM roda (earcons.py)
 
 ## Regras pro Claude Code
 1. Sempre ler o CLAUDE.md antes de começar

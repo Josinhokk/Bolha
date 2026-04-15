@@ -15,10 +15,16 @@ from typing import Any
 
 import yaml
 
-LOGGER = logging.getLogger("bolha")
-
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT_DIR / "config.yaml"
+
+# Permite rodar tanto com `python src/main.py` quanto `python -m src.main`.
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from src.voice.listener import MicrofoneListener  # noqa: E402
+
+LOGGER = logging.getLogger("bolha")
 
 
 def carregar_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
@@ -51,35 +57,31 @@ class Bolha:
         self.debug = config.get("app", {}).get("debug_mode", False)
         self.shutdown_timeout = config.get("shutdown", {}).get("timeout_seconds", 5)
 
-        # Filas que ligarão os módulos nas próximas fases.
+        # Filas que ligam os módulos.
+        queue_max = config["voice"]["audio"].get("queue_maxsize", 200)
+        self.fila_audio: asyncio.Queue[Any] = asyncio.Queue(maxsize=queue_max)
         self.fila_transcricao: asyncio.Queue[str] = asyncio.Queue()
         self.fila_acoes: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
         self._shutdown_event = asyncio.Event()
         self._tasks: list[asyncio.Task[Any]] = []
-
-    async def _heartbeat(self) -> None:
-        """Task placeholder que mantém o loop ativo até a Fase 2 chegar."""
-        tick = 0
-        try:
-            while not self._shutdown_event.is_set():
-                if self.debug:
-                    LOGGER.debug("heartbeat tick=%s", tick)
-                tick += 1
-                try:
-                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
-                    continue
-        except asyncio.CancelledError:
-            LOGGER.debug("heartbeat cancelado")
-            raise
+        self._listener: MicrofoneListener | None = None
 
     async def iniciar(self) -> None:
         """Sobe todas as tasks e aguarda o sinal de shutdown."""
         LOGGER.info("Bolha iniciando (debug=%s)", self.debug)
-        self._tasks.append(asyncio.create_task(self._heartbeat(), name="heartbeat"))
+        loop = asyncio.get_running_loop()
 
-        # Próximas fases registram mais tasks aqui (listener, brain, executor...).
+        # Listener: captura do microfone alimentando fila_audio.
+        self._listener = MicrofoneListener(self.fila_audio, self.config, loop)
+        self._tasks.append(asyncio.create_task(self._listener.run(), name="listener"))
+
+        # Wake word: consome fila_audio e detecta "Bolha".
+        # Import tardio: openwakeword carrega modelos pesados.
+        from src.voice.wake_word import WakeWordDetector
+
+        detector = WakeWordDetector(self.fila_audio, self.config)
+        self._tasks.append(asyncio.create_task(detector.run(), name="wake_word"))
 
         LOGGER.info("Bolha pronto. Aguardando wake word (Ctrl+C para sair).")
         await self._shutdown_event.wait()
@@ -92,6 +94,9 @@ class Bolha:
 
     async def encerrar(self) -> None:
         """Cancela tasks, libera recursos, fecha SQLite."""
+        if self._listener is not None:
+            self._listener.stop()
+
         LOGGER.info("Cancelando %d task(s)...", len(self._tasks))
         for task in self._tasks:
             task.cancel()
