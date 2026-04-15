@@ -1,0 +1,75 @@
+# Configurações do Bolha
+app:
+  name: Bolha
+  version: 0.1.0
+  language: pt-BR
+  debug_mode: true  # loga cada etapa no terminal
+
+paths:
+  data_dir: data
+  logs_dir: data/logs
+  memory_dir: data/memory
+  models_dir: data/models
+  sounds_dir: data/sounds
+  db_path: data/logs/bolha.db
+
+logging:
+  level: DEBUG  # DEBUG, INFO, WARNING, ERROR
+  file: data/logs/bolha.log
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+voice:
+  wake_word: bolha
+  sample_rate: 16000
+  channels: 1
+  stt:
+    model: base           # tiny, base, small, medium, large
+    device: cuda          # cuda ou cpu
+    language: pt
+  tts:
+    voice: pt_BR-faber-medium
+  vad:
+    threshold: 0.5
+    min_silence_ms: 500
+
+brain:
+  provider: ollama        # ollama | anthropic (futuro)
+  model: phi3:mini
+  host: http://localhost:11434
+  format: json
+  temperature: 0.2
+  max_history: 10         # sliding window de interações
+
+executor:
+  dry_run: false
+  # timeouts por tipo de ação (segundos)
+  timeouts:
+    default: 10
+    file_operation: 15
+    app_launch: 20
+    browser: 15
+    system_cmd: 10
+    screen_control: 8
+
+security:
+  require_confirmation: true
+  rate_limit:
+    max_actions: 10
+    per_seconds: 60
+  protected_paths:
+    - "C:/Windows"
+    - "C:/Program Files"
+    - "C:/Program Files (x86)"
+  blocked_commands:
+    - format
+    - diskpart
+    - "reg delete"
+  destructive_actions:
+    - file_delete
+    - folder_delete
+    - file_move
+    - system_shutdown
+    - registry_edit
+
+shutdown:
+  timeout_seconds: 5      # tempo máximo pra graceful shutdown
