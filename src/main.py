@@ -23,6 +23,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.voice.listener import MicrofoneListener  # noqa: E402
+from src.voice.tts import PiperTTS  # noqa: E402
 
 LOGGER = logging.getLogger("bolha")
 
@@ -80,8 +81,12 @@ class Bolha:
         # Import tardio: openwakeword carrega modelos pesados.
         from src.voice.wake_word import WakeWordDetector
 
+        tts = PiperTTS(self.config, ROOT_DIR)
         detector = WakeWordDetector(
-            self.fila_audio, self.config, transcricao_queue=self.fila_transcricao
+            self.fila_audio,
+            self.config,
+            transcricao_queue=self.fila_transcricao,
+            tts=tts,
         )
         self._tasks.append(asyncio.create_task(detector.run(), name="wake_word"))
 

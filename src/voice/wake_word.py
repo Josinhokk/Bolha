@@ -19,6 +19,7 @@ import numpy as np
 
 from src.voice.earcons import tocar_bip, tocar_processando
 from src.voice.stt import WhisperSTT
+from src.voice.tts import PiperTTS
 from src.voice.vad import SileroVAD
 
 LOGGER = logging.getLogger("bolha.voice.wake_word")
@@ -34,6 +35,7 @@ class WakeWordDetector:
         transcricao_queue: asyncio.Queue[str] | None = None,
         vad: SileroVAD | None = None,
         stt: WhisperSTT | None = None,
+        tts: PiperTTS | None = None,
     ) -> None:
         # Import tardio: openwakeword é pesado e pode não estar instalado em dev.
         from openwakeword.model import Model
@@ -46,6 +48,7 @@ class WakeWordDetector:
         self._transcricao_queue = transcricao_queue
         self._vad = vad if vad is not None else SileroVAD(config)
         self._stt = stt if stt is not None else WhisperSTT(config)
+        self._tts = tts
 
         self._sample_rate: int = vcfg["sample_rate"]
         self._chunk_samples: int = vcfg["audio"]["chunk_samples"]
@@ -178,3 +181,7 @@ class WakeWordDetector:
 
         if self._transcricao_queue is not None:
             await self._transcricao_queue.put(texto)
+
+        # Sub-etapa 3: resposta hardcoded enquanto o brain não existe.
+        if self._tts is not None:
+            await self._tts.falar(f"Entendi: {texto}")

@@ -48,7 +48,11 @@ voice:
     language: pt             # pt travado evita alucinação em áudios curtos. use "auto" pra PT+EN
     beam_size: 5
   tts:
-    voice: pt_BR-faber-medium
+    voice: pt_BR-faber-medium  # PT-BR oficial do Piper só tem voz masculina
+    model_path: data/models/pt_BR-faber-medium.onnx
+    config_path: data/models/pt_BR-faber-medium.onnx.json
+    speaker_id: null
+    use_cuda: false            # true só se onnxruntime-gpu estiver instalado
   vad:
     threshold: 0.5
     min_silence_ms: 500
