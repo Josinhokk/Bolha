@@ -25,6 +25,8 @@ if str(ROOT_DIR) not in sys.path:
 from src.brain.intent_parser import IntentParser  # noqa: E402
 from src.brain.llm_client import OllamaClient  # noqa: E402
 from src.brain.memory import MemoriaManager  # noqa: E402
+from src.executor.file_manager import FileManager  # noqa: E402
+from src.executor.router import ActionRouter  # noqa: E402
 from src.voice.listener import MicrofoneListener  # noqa: E402
 from src.voice.tts import PiperTTS  # noqa: E402
 
@@ -100,17 +102,25 @@ class Bolha:
         self._llm_client = OllamaClient(self.config)
         self._memoria = MemoriaManager(self.config, ROOT_DIR)
         parser = IntentParser(self._llm_client)
+
+        # Executor: router + handlers.
+        router = ActionRouter(self.config)
+        file_mgr = FileManager(self.config)
+        router.registrar_varios(file_mgr.handlers())
+
         self._tasks.append(
             asyncio.create_task(
-                self._task_brain(parser, tts), name="brain",
+                self._task_brain(parser, tts, router), name="brain",
             )
         )
 
         LOGGER.info("Bolha pronto. Aguardando wake word (Ctrl+C para sair).")
         await self._shutdown_event.wait()
 
-    async def _task_brain(self, parser: IntentParser, tts: PiperTTS) -> None:
-        """Consome fila_transcricao, interpreta via LLM, registra e responde."""
+    async def _task_brain(
+        self, parser: IntentParser, tts: PiperTTS, router: ActionRouter,
+    ) -> None:
+        """Consome fila_transcricao, interpreta via LLM, executa e responde."""
         LOGGER.info("Task brain iniciada — aguardando transcrições.")
         while True:
             texto = await self.fila_transcricao.get()
@@ -128,6 +138,9 @@ class Bolha:
                 f"confidence={intent.confidence:.2f}  destructive={intent.destructive}"
             )
 
+            # Executar a ação via router.
+            result = await router.executar(intent.intent, intent.params)
+
             if self._memoria is not None:
                 self._memoria.registrar(
                     user_input=texto,
@@ -135,19 +148,23 @@ class Bolha:
                     params=intent.params,
                     confidence=intent.confidence,
                     destructive=intent.destructive,
+                    resultado=result.message,
                 )
 
-            # Resposta por voz baseada na intent.
+            # Resposta por voz.
             if intent.intent == "conversation":
                 resposta = intent.params.get("reply", "Não sei o que dizer.")
             elif intent.intent == "not_understood":
                 resposta = "Desculpa, não entendi o que você disse."
+            elif result.success and result.message:
+                resposta = result.message
+            elif not result.success and result.message:
+                resposta = result.message
             else:
                 resposta = f"Entendido: {intent.intent}."
 
+            print(f"[Executor] {resposta}")
             await tts.falar(resposta)
-
-            await self.fila_acoes.put(intent.model_dump())
 
     def solicitar_shutdown(self) -> None:
         """Sinaliza shutdown. Chamado pelos signal handlers."""

@@ -4,13 +4,13 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **3/6 (Cérebro)** — CONCLUÍDA ✅
-- Último trabalho (sub-etapa 4):
-  - `src/brain/memory.py` — `MemoriaManager` com sliding window (`deque` maxlen configurável via `brain.max_history`) + SQLite (`data/logs/bolha.db`). `Interacao` dataclass com timestamp/user_input/intent/params/confidence/destructive/resultado. Métodos: `registrar()` (salva na window + SQLite), `contexto_para_prompt()` (formata histórico pro LLM), `buscar_no_sqlite()` (consulta antigas), `fechar()`.
-  - `src/main.py` — brain integrado: `_task_brain()` consome `fila_transcricao`, interpreta via `IntentParser`, registra na `MemoriaManager`, responde por TTS (conversation → reply, not_understood → desculpa, outros → "Entendido: {intent}"). Wake word não responde mais direto — delega pro brain. `encerrar()` fecha LLM client + SQLite.
-  - `src/voice/wake_word.py` — removida resposta hardcoded "Entendi: X", agora só envia texto pra `fila_transcricao`.
-- Sub-etapas anteriores: llm_client (1), intent_parser + prompts (2), prompts otimizados com exemplos (3).
-- Próximo passo: Fase 4 (Mãos) — executor com ações reais (file, app, browser, system) + timeouts.
+- Fase: **4/6 (Mãos)** — sub-etapa 1 concluída (router + file_manager)
+- Último trabalho:
+  - `src/executor/router.py` — `ActionRouter` mapeia intents → handlers, executa com `asyncio.wait_for(timeout)` por tipo de ação (config.yaml). `ActionResult` dataclass padroniza resultado (success, message, intent, params). Intents conversation/not_understood passam direto sem handler.
+  - `src/executor/file_manager.py` — `FileManager` com 7 operações: file_create, file_delete, file_move, file_copy, file_list, folder_create, folder_delete. Paths relativos ao home do usuário. Todas rodam em `asyncio.to_thread`. Captura PermissionError, FileNotFoundError, OSError com mensagens amigáveis. Suporta dry_run via config.
+  - `src/main.py` — router integrado: brain interpreta → router executa → resultado registrado na memória → TTS responde com resultado real.
+- Fase 3 (Cérebro): CONCLUÍDA ✅ — llm_client, intent_parser, prompts, memory.
+- Próximo passo: sub-etapa 2 — app_manager (open_app, close_app) + system_manager (system_info, system_volume, system_shutdown) + browser_manager (browser_open, browser_search).
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -73,7 +73,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 ## Próximos passos
 - Baixar `pt_BR-faber-medium.onnx(.json)` pra `data/models/` (voz do TTS)
 - Treinar modelo custom "bolha.onnx" (openWakeWord) e apontar em `voice.wake_word.model_path`
-- Fase 4: executor com ações reais (file, app, browser, system) + timeouts
+- Fase 4 sub-etapa 2: app_manager, system_manager, browser_manager
 - Streaming VAD em vez de janela fixa de 5s (corta quando o usuário para de falar)
 
 ## Regras pro Claude Code
