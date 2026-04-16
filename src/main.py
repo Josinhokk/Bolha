@@ -22,6 +22,9 @@ CONFIG_PATH = ROOT_DIR / "config.yaml"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from src.brain.intent_parser import IntentParser  # noqa: E402
+from src.brain.llm_client import OllamaClient  # noqa: E402
+from src.brain.memory import MemoriaManager  # noqa: E402
 from src.voice.listener import MicrofoneListener  # noqa: E402
 from src.voice.tts import PiperTTS  # noqa: E402
 
@@ -67,31 +70,84 @@ class Bolha:
         self._shutdown_event = asyncio.Event()
         self._tasks: list[asyncio.Task[Any]] = []
         self._listener: MicrofoneListener | None = None
+        self._llm_client: OllamaClient | None = None
+        self._memoria: MemoriaManager | None = None
 
     async def iniciar(self) -> None:
         """Sobe todas as tasks e aguarda o sinal de shutdown."""
         LOGGER.info("Bolha iniciando (debug=%s)", self.debug)
         loop = asyncio.get_running_loop()
 
+        # TTS compartilhado entre wake_word e brain.
+        tts = PiperTTS(self.config, ROOT_DIR)
+
         # Listener: captura do microfone alimentando fila_audio.
         self._listener = MicrofoneListener(self.fila_audio, self.config, loop)
         self._tasks.append(asyncio.create_task(self._listener.run(), name="listener"))
 
         # Wake word: consome fila_audio e detecta "Bolha".
-        # Import tardio: openwakeword carrega modelos pesados.
         from src.voice.wake_word import WakeWordDetector
 
-        tts = PiperTTS(self.config, ROOT_DIR)
         detector = WakeWordDetector(
             self.fila_audio,
             self.config,
             transcricao_queue=self.fila_transcricao,
-            tts=tts,
+            tts=None,
         )
         self._tasks.append(asyncio.create_task(detector.run(), name="wake_word"))
 
+        # Brain: consome fila_transcricao, interpreta intent, registra na memória.
+        self._llm_client = OllamaClient(self.config)
+        self._memoria = MemoriaManager(self.config, ROOT_DIR)
+        parser = IntentParser(self._llm_client)
+        self._tasks.append(
+            asyncio.create_task(
+                self._task_brain(parser, tts), name="brain",
+            )
+        )
+
         LOGGER.info("Bolha pronto. Aguardando wake word (Ctrl+C para sair).")
         await self._shutdown_event.wait()
+
+    async def _task_brain(self, parser: IntentParser, tts: PiperTTS) -> None:
+        """Consome fila_transcricao, interpreta via LLM, registra e responde."""
+        LOGGER.info("Task brain iniciada — aguardando transcrições.")
+        while True:
+            texto = await self.fila_transcricao.get()
+            LOGGER.info("[Brain] Recebido: '%s'", texto)
+
+            try:
+                intent = await parser.interpretar(texto)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.exception("Erro no intent parser: %s", exc)
+                await tts.falar("Desculpa, tive um problema ao processar seu pedido.")
+                continue
+
+            print(
+                f"[Brain] intent={intent.intent}  params={intent.params}  "
+                f"confidence={intent.confidence:.2f}  destructive={intent.destructive}"
+            )
+
+            if self._memoria is not None:
+                self._memoria.registrar(
+                    user_input=texto,
+                    intent=intent.intent,
+                    params=intent.params,
+                    confidence=intent.confidence,
+                    destructive=intent.destructive,
+                )
+
+            # Resposta por voz baseada na intent.
+            if intent.intent == "conversation":
+                resposta = intent.params.get("reply", "Não sei o que dizer.")
+            elif intent.intent == "not_understood":
+                resposta = "Desculpa, não entendi o que você disse."
+            else:
+                resposta = f"Entendido: {intent.intent}."
+
+            await tts.falar(resposta)
+
+            await self.fila_acoes.put(intent.model_dump())
 
     def solicitar_shutdown(self) -> None:
         """Sinaliza shutdown. Chamado pelos signal handlers."""
@@ -120,7 +176,11 @@ class Bolha:
                     self.shutdown_timeout,
                 )
 
-        # Nas próximas fases: fechar conexão SQLite, parar stream do microfone.
+        if self._llm_client is not None:
+            await self._llm_client.fechar()
+        if self._memoria is not None:
+            self._memoria.fechar()
+
         LOGGER.info("Bolha encerrado.")
 
 

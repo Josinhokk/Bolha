@@ -181,7 +181,3 @@ class WakeWordDetector:
 
         if self._transcricao_queue is not None:
             await self._transcricao_queue.put(texto)
-
-        # Sub-etapa 3: resposta hardcoded enquanto o brain não existe.
-        if self._tts is not None:
-            await self._tts.falar(f"Entendi: {texto}")

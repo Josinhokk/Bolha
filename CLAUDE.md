@@ -4,12 +4,13 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **3/6 (Cérebro)** — sub-etapa 2 concluída (intent_parser + prompts)
-- Último trabalho:
-  - `src/brain/intent_parser.py` — `IntentResponse` (Pydantic BaseModel com `intent`, `params`, `confidence` [0.0–1.0], `destructive`). `IntentParser` recebe `BaseLLMClient`, método `interpretar(texto)` manda pro LLM com system prompt de intents, valida JSON com Pydantic, retry até 3x se inválido, fallback `_not_understood()` se todas falharem. Loga tentativa, latência, intent e confidence.
-  - `src/brain/prompts.py` — `SYSTEM_INTENT` com 14 intents conhecidas (open_app, close_app, browser_open, browser_search, file_create, file_delete, file_move, file_list, system_info, system_volume, system_shutdown, conversation, not_understood) + regras de confiança/destructive. `INTENT_USER_TEMPLATE` formata o texto do usuário.
-  - Sub-etapa 1 (llm_client) já concluída: `BaseLLMClient` ABC + `OllamaClient` + `LLMResponse` dataclass.
-- Próximo passo: sub-etapa 3 — `memory.py` (sliding window + SQLite para histórico de conversas), depois integrar brain no main.py como task consumindo `fila_transcricao`.
+- Fase: **3/6 (Cérebro)** — CONCLUÍDA ✅
+- Último trabalho (sub-etapa 4):
+  - `src/brain/memory.py` — `MemoriaManager` com sliding window (`deque` maxlen configurável via `brain.max_history`) + SQLite (`data/logs/bolha.db`). `Interacao` dataclass com timestamp/user_input/intent/params/confidence/destructive/resultado. Métodos: `registrar()` (salva na window + SQLite), `contexto_para_prompt()` (formata histórico pro LLM), `buscar_no_sqlite()` (consulta antigas), `fechar()`.
+  - `src/main.py` — brain integrado: `_task_brain()` consome `fila_transcricao`, interpreta via `IntentParser`, registra na `MemoriaManager`, responde por TTS (conversation → reply, not_understood → desculpa, outros → "Entendido: {intent}"). Wake word não responde mais direto — delega pro brain. `encerrar()` fecha LLM client + SQLite.
+  - `src/voice/wake_word.py` — removida resposta hardcoded "Entendi: X", agora só envia texto pra `fila_transcricao`.
+- Sub-etapas anteriores: llm_client (1), intent_parser + prompts (2), prompts otimizados com exemplos (3).
+- Próximo passo: Fase 4 (Mãos) — executor com ações reais (file, app, browser, system) + timeouts.
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -24,7 +25,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
   - `src/voice/tts.py` — `PiperTTS` com piper-tts 1.4.x (nova API `voice.synthesize()` → `AudioChunk`s com `audio_int16_array`). Modo silencioso se modelo não está em disco.
   - Edge TTS foi tentado (voz Yara feminina) e revertido — NoAudioReceived + problema na instalação. Ficou só o Piper (voz masculina faber).
   - Modelo Piper `pt_BR-faber-medium.onnx(.json)` baixado em `data/models/` (~60MB).
-- Brain em construção: Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite. llm_client, intent_parser e prompts prontos; faltam memory e a task consumidora em main.py.
+- Brain completo: Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite. Pipeline: wake word → STT → fila_transcricao → brain (intent parser + memória + TTS).
 - Pendências técnicas:
   - Modelo custom "bolha.onnx" não treinado; rodando com `hey_jarvis` como wake word.
   - Whisper `base` erra palavras PT-BR ocasionalmente ("feijão" → "fejão"). Considerar subir pra `small`/`medium` se for incomodar.
@@ -72,8 +73,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 ## Próximos passos
 - Baixar `pt_BR-faber-medium.onnx(.json)` pra `data/models/` (voz do TTS)
 - Treinar modelo custom "bolha.onnx" (openWakeWord) e apontar em `voice.wake_word.model_path`
-- Fase 3: Ollama + Phi-3 Mini consumindo `fila_transcricao`, Pydantic no output, SQLite de memória
-- Substituir a resposta hardcoded "Entendi: X" por resposta real do brain
+- Fase 4: executor com ações reais (file, app, browser, system) + timeouts
 - Streaming VAD em vez de janela fixa de 5s (corta quando o usuário para de falar)
 
 ## Regras pro Claude Code

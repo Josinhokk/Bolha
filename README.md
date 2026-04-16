@@ -15,11 +15,11 @@ Assistente pessoal de voz para Windows 11 com controle total do PC. **Async-firs
 Python 3.11+ (testado em 3.14), sounddevice, faster-whisper, Silero VAD, openWakeWord, Piper, Ollama, Pydantic, SQLite.
 
 ## Status
-**Fase 2/6 — Ouvido: CONCLUÍDA** ✅
+**Fase 3/6 — Cérebro: CONCLUÍDA** ✅
 
-Pipeline de voz end-to-end funcionando: microfone → wake word → bip → VAD → Whisper → print + TTS responde.
+Pipeline completo: microfone → wake word → bip → VAD → Whisper → LLM (Phi-3 Mini) → intent parser (Pydantic) → memória (SQLite) → TTS responde.
 
-**Em andamento:** Fase 3 (Cérebro — LLM + intent parser + memória).
+**Em andamento:** Fase 4 (Mãos — executor de ações no PC).
 
 ## Setup rápido
 
@@ -55,11 +55,11 @@ src/
 │   ├── stt.py          # faster-whisper (PT-BR)
 │   ├── tts.py          # Piper
 │   └── earcons.py      # bip + som de processando
-├── brain/            # Fase 3 (em andamento)
+├── brain/            # Fase 3 ✅
 │   ├── llm_client.py   # BaseLLMClient + OllamaClient (JSON mode)
 │   ├── intent_parser.py # Pydantic valida intent; retry automático
-│   ├── memory.py       # sliding window + SQLite
-│   └── prompts.py      # system prompts
+│   ├── memory.py       # sliding window (deque) + SQLite persistência
+│   └── prompts.py      # system prompts com exemplos por intent
 ├── executor/         # Fase 4 (planejado)
 ├── security/         # Fase 5 (planejado)
 └── integrations/     # Fase 6 (planejado)
@@ -81,8 +81,8 @@ Nunca hardcodar paths — tudo passa pelo config.
 
 1. ✅ **Fundação** — estrutura, config, main async com graceful shutdown
 2. ✅ **Ouvido** — wake word + VAD + STT + TTS; pipeline de voz end-to-end
-3. 🚧 **Cérebro** — Ollama + Phi-3 Mini, output JSON validado, memória com SQLite
-4. ⏳ **Mãos** — executor (file, app, browser, system) com timeouts
+3. ✅ **Cérebro** — Ollama + Phi-3 Mini, output JSON validado, memória com SQLite
+4. 🚧 **Mãos** — executor (file, app, browser, system) com timeouts
 5. ⏳ **Escudo** — guardian + rate limiter + confirmação por voz
 6. ⏳ **Evolução** — email, GUI, barge-in, switch pra API Claude
 
