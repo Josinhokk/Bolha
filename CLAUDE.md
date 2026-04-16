@@ -4,12 +4,12 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **3/6 (Cérebro)** — sub-etapa 1 concluída (llm_client)
+- Fase: **3/6 (Cérebro)** — sub-etapa 2 concluída (intent_parser + prompts)
 - Último trabalho:
-  - `src/brain/llm_client.py` — `BaseLLMClient` (ABC com `gerar_json`/`fechar`/async context manager) + `OllamaClient` (usa `ollama.AsyncClient`, `format: 'json'`, options.temperature, mede latência). `LLMResponse` dataclass normaliza saída (texto, model, latency_ms, raw, `parse_json()`). Fecha o httpx interno em `fechar()`. Subclasses futuras (Claude API, etc) herdam a mesma interface sem tocar no resto do brain.
-  - Demo standalone: `python -m src.brain.llm_client` manda prompt JSON pro Ollama local e imprime resposta crua + parseada.
-  - `README.md` reescrito: status, setup, instruções pra baixar voz do Piper, seção de testes por módulo, lista de pendências.
-- Próximo passo: sub-etapa 2 — `intent_parser.py` com Pydantic (valida estrutura `{intent, params, confidence, destructive}`, retry se JSON inválido), `prompts.py` com system prompt otimizado.
+  - `src/brain/intent_parser.py` — `IntentResponse` (Pydantic BaseModel com `intent`, `params`, `confidence` [0.0–1.0], `destructive`). `IntentParser` recebe `BaseLLMClient`, método `interpretar(texto)` manda pro LLM com system prompt de intents, valida JSON com Pydantic, retry até 3x se inválido, fallback `_not_understood()` se todas falharem. Loga tentativa, latência, intent e confidence.
+  - `src/brain/prompts.py` — `SYSTEM_INTENT` com 14 intents conhecidas (open_app, close_app, browser_open, browser_search, file_create, file_delete, file_move, file_list, system_info, system_volume, system_shutdown, conversation, not_understood) + regras de confiança/destructive. `INTENT_USER_TEMPLATE` formata o texto do usuário.
+  - Sub-etapa 1 (llm_client) já concluída: `BaseLLMClient` ABC + `OllamaClient` + `LLMResponse` dataclass.
+- Próximo passo: sub-etapa 3 — `memory.py` (sliding window + SQLite para histórico de conversas), depois integrar brain no main.py como task consumindo `fila_transcricao`.
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -24,7 +24,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
   - `src/voice/tts.py` — `PiperTTS` com piper-tts 1.4.x (nova API `voice.synthesize()` → `AudioChunk`s com `audio_int16_array`). Modo silencioso se modelo não está em disco.
   - Edge TTS foi tentado (voz Yara feminina) e revertido — NoAudioReceived + problema na instalação. Ficou só o Piper (voz masculina faber).
   - Modelo Piper `pt_BR-faber-medium.onnx(.json)` baixado em `data/models/` (~60MB).
-- Brain em construção: Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite. llm_client pronto; faltam intent_parser, memory, prompts e a task consumidora em main.py.
+- Brain em construção: Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite. llm_client, intent_parser e prompts prontos; faltam memory e a task consumidora em main.py.
 - Pendências técnicas:
   - Modelo custom "bolha.onnx" não treinado; rodando com `hey_jarvis` como wake word.
   - Whisper `base` erra palavras PT-BR ocasionalmente ("feijão" → "fejão"). Considerar subir pra `small`/`medium` se for incomodar.
