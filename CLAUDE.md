@@ -4,7 +4,13 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **2/6 (Ouvido) CONCLUÍDA** ✅ — pipeline de voz end-to-end funcionando
+- Fase: **3/6 (Cérebro)** — sub-etapa 1 concluída (llm_client)
+- Último trabalho:
+  - `src/brain/llm_client.py` — `BaseLLMClient` (ABC com `gerar_json`/`fechar`/async context manager) + `OllamaClient` (usa `ollama.AsyncClient`, `format: 'json'`, options.temperature, mede latência). `LLMResponse` dataclass normaliza saída (texto, model, latency_ms, raw, `parse_json()`). Fecha o httpx interno em `fechar()`. Subclasses futuras (Claude API, etc) herdam a mesma interface sem tocar no resto do brain.
+  - Demo standalone: `python -m src.brain.llm_client` manda prompt JSON pro Ollama local e imprime resposta crua + parseada.
+  - `README.md` reescrito: status, setup, instruções pra baixar voz do Piper, seção de testes por módulo, lista de pendências.
+- Próximo passo: sub-etapa 2 — `intent_parser.py` com Pydantic (valida estrutura `{intent, params, confidence, destructive}`, retry se JSON inválido), `prompts.py` com system prompt otimizado.
+- Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
   1. `MicrofoneListener` abre `sd.InputStream` 16kHz/int16/1280 samples, callback → `fila_audio` via `call_soon_threadsafe`
@@ -18,7 +24,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
   - `src/voice/tts.py` — `PiperTTS` com piper-tts 1.4.x (nova API `voice.synthesize()` → `AudioChunk`s com `audio_int16_array`). Modo silencioso se modelo não está em disco.
   - Edge TTS foi tentado (voz Yara feminina) e revertido — NoAudioReceived + problema na instalação. Ficou só o Piper (voz masculina faber).
   - Modelo Piper `pt_BR-faber-medium.onnx(.json)` baixado em `data/models/` (~60MB).
-- Próximo passo: **Fase 3 — Cérebro**. Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite.
+- Brain em construção: Ollama + Phi-3 Mini consumindo `fila_transcricao`, output JSON validado com Pydantic, memória com sliding window + SQLite. llm_client pronto; faltam intent_parser, memory, prompts e a task consumidora em main.py.
 - Pendências técnicas:
   - Modelo custom "bolha.onnx" não treinado; rodando com `hey_jarvis` como wake word.
   - Whisper `base` erra palavras PT-BR ocasionalmente ("feijão" → "fejão"). Considerar subir pra `small`/`medium` se for incomodar.
