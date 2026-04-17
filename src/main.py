@@ -25,6 +25,8 @@ if str(ROOT_DIR) not in sys.path:
 from src.brain.intent_parser import IntentParser  # noqa: E402
 from src.brain.llm_client import OllamaClient  # noqa: E402
 from src.brain.memory import MemoriaManager  # noqa: E402
+from src.executor.app_launcher import AppLauncher  # noqa: E402
+from src.executor.browser import BrowserManager  # noqa: E402
 from src.executor.file_manager import FileManager  # noqa: E402
 from src.executor.router import ActionRouter  # noqa: E402
 from src.voice.listener import MicrofoneListener  # noqa: E402
@@ -106,7 +108,11 @@ class Bolha:
         # Executor: router + handlers.
         router = ActionRouter(self.config)
         file_mgr = FileManager(self.config)
+        app_launcher = AppLauncher(self.config)
+        browser_mgr = BrowserManager(self.config)
         router.registrar_varios(file_mgr.handlers())
+        router.registrar_varios(app_launcher.handlers())
+        router.registrar_varios(browser_mgr.handlers())
 
         self._tasks.append(
             asyncio.create_task(

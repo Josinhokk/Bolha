@@ -4,13 +4,15 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **4/6 (Mãos)** — sub-etapa 1 concluída (router + file_manager)
+- Fase: **4/6 (Mãos)** — sub-etapa 2 concluída (app_launcher + browser)
 - Último trabalho:
-  - `src/executor/router.py` — `ActionRouter` mapeia intents → handlers, executa com `asyncio.wait_for(timeout)` por tipo de ação (config.yaml). `ActionResult` dataclass padroniza resultado (success, message, intent, params). Intents conversation/not_understood passam direto sem handler.
-  - `src/executor/file_manager.py` — `FileManager` com 7 operações: file_create, file_delete, file_move, file_copy, file_list, folder_create, folder_delete. Paths relativos ao home do usuário. Todas rodam em `asyncio.to_thread`. Captura PermissionError, FileNotFoundError, OSError com mensagens amigáveis. Suporta dry_run via config.
-  - `src/main.py` — router integrado: brain interpreta → router executa → resultado registrado na memória → TTS responde com resultado real.
-- Fase 3 (Cérebro): CONCLUÍDA ✅ — llm_client, intent_parser, prompts, memory.
-- Próximo passo: sub-etapa 2 — app_manager (open_app, close_app) + system_manager (system_info, system_volume, system_shutdown) + browser_manager (browser_open, browser_search).
+  - `src/executor/app_launcher.py` — `AppLauncher` com open_app (subprocess.Popen + DETACHED_PROCESS) e close_app (taskkill /IM /F). Aliases PT-BR → executável via config.yaml (27 aliases: "bloco de notas"→notepad, "calculadora"→calc, etc). Roda em `asyncio.to_thread`. Captura FileNotFoundError, TimeoutExpired, OSError.
+  - `src/executor/browser.py` — `BrowserManager` com browser_open (webbrowser.open, auto-prefixo https://) e browser_search (Google query string via urllib.parse.quote_plus). Roda em `asyncio.to_thread`.
+  - `config.yaml` — seção `executor.app_aliases` com 27 mapeamentos PT-BR → executável Windows.
+  - `src/main.py` — AppLauncher e BrowserManager instanciados e registrados no router.
+  - Sub-etapa 1 (router + file_manager): mantida intacta.
+- Fase 3 (Cérebro): CONCLUÍDA — llm_client, intent_parser, prompts, memory.
+- Próximo passo: sub-etapa 3 — system_manager (system_info, system_volume, system_shutdown).
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -65,7 +67,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 - security/ → valida e loga toda ação
 
 ## Erros conhecidos e soluções
-(Atualizar a cada sessão com bugs encontrados e como foram resolvidos)
+- config.yaml: valores com `:` no final (ex: `ms-settings:`) precisam de aspas no YAML, senão o parser quebra.
 
 ## Problemas conhecidos
 - Sem modelo custom de "Bolha" (openWakeWord) — usando `hey_jarvis` como fallback temporário
@@ -73,7 +75,7 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 ## Próximos passos
 - Baixar `pt_BR-faber-medium.onnx(.json)` pra `data/models/` (voz do TTS)
 - Treinar modelo custom "bolha.onnx" (openWakeWord) e apontar em `voice.wake_word.model_path`
-- Fase 4 sub-etapa 2: app_manager, system_manager, browser_manager
+- Fase 4 sub-etapa 3: system_manager (system_info, system_volume, system_shutdown)
 - Streaming VAD em vez de janela fixa de 5s (corta quando o usuário para de falar)
 
 ## Regras pro Claude Code

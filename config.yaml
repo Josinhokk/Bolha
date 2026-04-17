@@ -68,6 +68,35 @@ brain:
 
 executor:
   dry_run: false
+  # aliases PT-BR → nome do executável (Windows)
+  app_aliases:
+    bloco de notas: notepad
+    notepad: notepad
+    calculadora: calc
+    calc: calc
+    explorador: explorer
+    explorador de arquivos: explorer
+    explorer: explorer
+    paint: mspaint
+    terminal: wt
+    cmd: cmd
+    prompt de comando: cmd
+    powershell: powershell
+    gerenciador de tarefas: taskmgr
+    configurações: "ms-settings:"
+    loja: "ms-windows-store:"
+    word: winword
+    excel: excel
+    powerpoint: powerpnt
+    chrome: chrome
+    firefox: firefox
+    edge: msedge
+    spotify: spotify
+    discord: discord
+    vscode: code
+    visual studio code: code
+    steam: steam
+    vlc: vlc
   # timeouts por tipo de ação (segundos)
   timeouts:
     default: 10
