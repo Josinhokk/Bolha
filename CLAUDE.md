@@ -4,15 +4,16 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **4/6 (Mãos)** — sub-etapa 2 concluída (app_launcher + browser)
+- Fase: **4/6 (Mãos)** — sub-etapa 3 concluída (system_cmd + permissions)
 - Último trabalho:
-  - `src/executor/app_launcher.py` — `AppLauncher` com open_app (subprocess.Popen + DETACHED_PROCESS) e close_app (taskkill /IM /F). Aliases PT-BR → executável via config.yaml (27 aliases: "bloco de notas"→notepad, "calculadora"→calc, etc). Roda em `asyncio.to_thread`. Captura FileNotFoundError, TimeoutExpired, OSError.
-  - `src/executor/browser.py` — `BrowserManager` com browser_open (webbrowser.open, auto-prefixo https://) e browser_search (Google query string via urllib.parse.quote_plus). Roda em `asyncio.to_thread`.
-  - `config.yaml` — seção `executor.app_aliases` com 27 mapeamentos PT-BR → executável Windows.
-  - `src/main.py` — AppLauncher e BrowserManager instanciados e registrados no router.
-  - Sub-etapa 1 (router + file_manager): mantida intacta.
+  - `src/executor/permissions.py` — `is_admin()` via `ctypes.windll.shell32.IsUserAnAdmin()`, cacheado com `lru_cache`. Exporta `MENSAGEM_SEM_ADMIN = "Preciso de permissão de administrador para isso."`. Não auto-eleva — só detecta e reporta.
+  - `src/executor/system_cmd.py` — `SystemManager` com `system_info` (psutil: CPU%, RAM GB usado/total, disco livre/total), `system_volume` (pycaw via COM: up/down/mute/unmute, passo padrão `executor.system.volume_step=10%`, desmuta ao subir/descer), `system_shutdown` (subprocess: `shutdown /s|/r /t 0` pra desligar/reiniciar, `rundll32 powrprof.dll,SetSuspendState 0,1,0` pra suspender). shutdown/restart checam `is_admin()` antes e bloqueiam com `MENSAGEM_SEM_ADMIN` se não estiver elevado; sleep funciona sem admin. Import de pycaw/psutil é try/except → ausência vira mensagem amigável sem quebrar o app.
+  - `config.yaml` — nova seção `executor.system` (`volume_step: 10`, `disk_path: "C:/"`).
+  - `requirements.txt` — adicionados `psutil>=5.9.0`, `pycaw>=20240210`, `comtypes>=1.2.0` (COM wrapper que pycaw usa).
+  - `src/main.py` — `SystemManager` instanciado e registrado no router ao lado dos demais.
+  - Sub-etapas 1 e 2 (router, file_manager, app_launcher, browser): mantidas intactas.
 - Fase 3 (Cérebro): CONCLUÍDA — llm_client, intent_parser, prompts, memory.
-- Próximo passo: sub-etapa 3 — system_manager (system_info, system_volume, system_shutdown).
+- Próximo passo: sub-etapa 4 — screen_control.py (PyAutoGUI como último recurso, mouse/teclado/screenshot).
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -75,7 +76,9 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 ## Próximos passos
 - Baixar `pt_BR-faber-medium.onnx(.json)` pra `data/models/` (voz do TTS)
 - Treinar modelo custom "bolha.onnx" (openWakeWord) e apontar em `voice.wake_word.model_path`
-- Fase 4 sub-etapa 3: system_manager (system_info, system_volume, system_shutdown)
+- Instalar deps novas: `pip install psutil pycaw comtypes` (sem elas, system_info/system_volume ficam desabilitados mas o app sobe)
+- Fase 4 sub-etapa 4: screen_control.py (PyAutoGUI — mouse, teclado, screenshot)
+- Fase 4 sub-etapa 5: integração com o security/guardian (rate limiter + confirm destrutivas) já listada no config mas ainda não codada
 - Streaming VAD em vez de janela fixa de 5s (corta quando o usuário para de falar)
 
 ## Regras pro Claude Code

@@ -97,6 +97,10 @@ executor:
     visual studio code: code
     steam: steam
     vlc: vlc
+  # comandos de sistema (volume, info, shutdown)
+  system:
+    volume_step: 10      # passo em % usado quando o LLM não manda 'value'
+    disk_path: "C:/"     # drive consultado pelo system_info
   # timeouts por tipo de ação (segundos)
   timeouts:
     default: 10

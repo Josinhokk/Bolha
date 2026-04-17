@@ -50,9 +50,17 @@ Intents conhecidas (com exemplos de frases):
 - "file_list" → params: {"path": "..."}
   Ex: "lista os arquivos da área de trabalho" → {"intent":"file_list","params":{"path":"Desktop"},"confidence":0.9,"destructive":false}
 
-- "system_info" → params: {}
-  Ex: "que horas são" → {"intent":"system_info","params":{},"confidence":0.95,"destructive":false}
-  Ex: "quanta bateria tem" → {"intent":"system_info","params":{},"confidence":0.9,"destructive":false}
+- "system_info" → params: {"kind": "time|date|battery|hardware|all"}
+  kind="time" para perguntas sobre horas ("que horas são", "que horas").
+  kind="date" para perguntas sobre dia/data ("que dia é hoje", "que data é").
+  kind="battery" para perguntas sobre bateria ("quanta bateria", "bateria tá como").
+  kind="hardware" para perguntas sobre CPU/RAM/disco ("como tá a memória", "quanto de RAM", "espaço em disco").
+  kind="all" para status geral ("como tá o pc", "status do sistema").
+  Ex: "que horas são" → {"intent":"system_info","params":{"kind":"time"},"confidence":0.95,"destructive":false}
+  Ex: "que dia é hoje" → {"intent":"system_info","params":{"kind":"date"},"confidence":0.95,"destructive":false}
+  Ex: "quanta bateria tem" → {"intent":"system_info","params":{"kind":"battery"},"confidence":0.9,"destructive":false}
+  Ex: "como tá a memória" → {"intent":"system_info","params":{"kind":"hardware"},"confidence":0.9,"destructive":false}
+  Ex: "status do sistema" → {"intent":"system_info","params":{"kind":"all"},"confidence":0.9,"destructive":false}
 
 - "system_volume" → params: {"action": "up|down|mute|unmute", "value": <int>}
   Ex: "aumenta o volume" → {"intent":"system_volume","params":{"action":"up","value":10},"confidence":0.9,"destructive":false}

@@ -29,6 +29,7 @@ from src.executor.app_launcher import AppLauncher  # noqa: E402
 from src.executor.browser import BrowserManager  # noqa: E402
 from src.executor.file_manager import FileManager  # noqa: E402
 from src.executor.router import ActionRouter  # noqa: E402
+from src.executor.system_cmd import SystemManager  # noqa: E402
 from src.voice.listener import MicrofoneListener  # noqa: E402
 from src.voice.tts import PiperTTS  # noqa: E402
 
@@ -110,9 +111,11 @@ class Bolha:
         file_mgr = FileManager(self.config)
         app_launcher = AppLauncher(self.config)
         browser_mgr = BrowserManager(self.config)
+        system_mgr = SystemManager(self.config)
         router.registrar_varios(file_mgr.handlers())
         router.registrar_varios(app_launcher.handlers())
         router.registrar_varios(browser_mgr.handlers())
+        router.registrar_varios(system_mgr.handlers())
 
         self._tasks.append(
             asyncio.create_task(
