@@ -101,6 +101,11 @@ executor:
   system:
     volume_step: 10      # passo em % usado quando o LLM não manda 'value'
     disk_path: "C:/"     # drive consultado pelo system_info
+  # controle de tela (PyAutoGUI) — último recurso quando CLI não basta
+  screen:
+    screenshots_dir: data/screenshots   # relativo ao ROOT_DIR
+    type_interval: 0.02                 # segundos entre teclas ao digitar
+    failsafe: true                      # aborta se o mouse for pro canto da tela
   # timeouts por tipo de ação (segundos)
   timeouts:
     default: 10

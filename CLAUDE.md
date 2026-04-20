@@ -4,16 +4,19 @@
 Assistente pessoal de voz para Windows 11 com controle total do PC.
 
 ## Status atual
-- Fase: **4/6 (Mãos)** — sub-etapa 3 concluída (system_cmd + permissions)
-- Último trabalho:
-  - `src/executor/permissions.py` — `is_admin()` via `ctypes.windll.shell32.IsUserAnAdmin()`, cacheado com `lru_cache`. Exporta `MENSAGEM_SEM_ADMIN = "Preciso de permissão de administrador para isso."`. Não auto-eleva — só detecta e reporta.
-  - `src/executor/system_cmd.py` — `SystemManager` com `system_info` (psutil: CPU%, RAM GB usado/total, disco livre/total), `system_volume` (pycaw via COM: up/down/mute/unmute, passo padrão `executor.system.volume_step=10%`, desmuta ao subir/descer), `system_shutdown` (subprocess: `shutdown /s|/r /t 0` pra desligar/reiniciar, `rundll32 powrprof.dll,SetSuspendState 0,1,0` pra suspender). shutdown/restart checam `is_admin()` antes e bloqueiam com `MENSAGEM_SEM_ADMIN` se não estiver elevado; sleep funciona sem admin. Import de pycaw/psutil é try/except → ausência vira mensagem amigável sem quebrar o app.
-  - `config.yaml` — nova seção `executor.system` (`volume_step: 10`, `disk_path: "C:/"`).
-  - `requirements.txt` — adicionados `psutil>=5.9.0`, `pycaw>=20240210`, `comtypes>=1.2.0` (COM wrapper que pycaw usa).
-  - `src/main.py` — `SystemManager` instanciado e registrado no router ao lado dos demais.
-  - Sub-etapas 1 e 2 (router, file_manager, app_launcher, browser): mantidas intactas.
+- Fase: **4/6 (Mãos) — CONCLUÍDA** (todas as 4 sub-etapas + pipeline de voz integrado).
+- Sub-etapa 4 (último trabalho):
+  - `src/executor/screen_control.py` — `ScreenController` com `screen_click` (valida x/y contra `pyautogui.size()`, aceita button left/right/middle e clicks), `screen_type` (digita via `pyautogui.write`, interval configurável) e `screen_screenshot` (salva em `data/screenshots/screenshot_YYYYMMDD_HHMMSS.png`). Import de pyautogui é try/except → ausência vira mensagem amigável. `FAILSAFE` ligado (mouse no canto aborta) e `PAUSE=0` pra não atrapalhar o event loop. É último recurso — prompts.py regra 9 obriga o LLM a preferir intents dedicadas.
+  - `src/main.py` — `ScreenController(self.config, ROOT_DIR)` instanciado e registrado no router junto aos outros. Pipeline de voz→cérebro→executor fechado end-to-end.
+  - `src/brain/prompts.py` — três intents novas (`screen_click`, `screen_type`, `screen_screenshot`) com exemplos PT-BR, e regra 9 dizendo que são último recurso.
+  - `src/executor/router.py` — 3 timeouts novos usando `executor.timeouts.screen_control` (default 8s).
+  - `config.yaml` — nova seção `executor.screen` (`screenshots_dir: data/screenshots`, `type_interval: 0.02`, `failsafe: true`). `executor.timeouts.screen_control` já existia.
+  - `src/executor/README.md` — marcado como ✅ com doc de quando usar.
+  - Validação: 17 handlers registrados no router. Pipeline "abre o YouTube" → `browser_open` → `webbrowser.open("https://youtube.com")` → TTS "Abrindo https://youtube.com no navegador." (testado com mock). Caminhos de erro do screen_control (coord inválida, botão inválido, texto vazio) retornam `success=False` com mensagem amigável.
+- Sub-etapa 3: `src/executor/permissions.py` + `src/executor/system_cmd.py` (psutil + pycaw/COM + shutdown.exe). shutdown/restart checam `is_admin()`, sleep não precisa.
+- Sub-etapas 1 e 2: router, file_manager, app_launcher, browser — intactos.
 - Fase 3 (Cérebro): CONCLUÍDA — llm_client, intent_parser, prompts, memory.
-- Próximo passo: sub-etapa 4 — screen_control.py (PyAutoGUI como último recurso, mouse/teclado/screenshot).
+- Próximo passo: Fase 5 (Segurança) — `src/security/guardian.py` (rate limiter + confirmação de destrutivas já listadas em `security.destructive_actions`).
 - Entrega da Fase 2: pipeline de voz end-to-end funcionando
 - Entregável validado: "hey jarvis, que horas são" → bip → gravação → VAD → Whisper → print `[STT] (pt) que horas são` → faber responde "Entendi: que horas são" por voz.
 - Pipeline em `main.py` + `wake_word.py`:
@@ -74,12 +77,11 @@ Assistente pessoal de voz para Windows 11 com controle total do PC.
 - Sem modelo custom de "Bolha" (openWakeWord) — usando `hey_jarvis` como fallback temporário
 
 ## Próximos passos
-- Baixar `pt_BR-faber-medium.onnx(.json)` pra `data/models/` (voz do TTS)
 - Treinar modelo custom "bolha.onnx" (openWakeWord) e apontar em `voice.wake_word.model_path`
-- Instalar deps novas: `pip install psutil pycaw comtypes` (sem elas, system_info/system_volume ficam desabilitados mas o app sobe)
-- Fase 4 sub-etapa 4: screen_control.py (PyAutoGUI — mouse, teclado, screenshot)
-- Fase 4 sub-etapa 5: integração com o security/guardian (rate limiter + confirm destrutivas) já listada no config mas ainda não codada
+- Fase 5: `src/security/guardian.py` — rate limiter (`security.rate_limit.max_actions` em `per_seconds`) + confirmação por voz antes de executar `security.destructive_actions` (file_delete, folder_delete, file_move, system_shutdown, registry_edit)
+- Fase 6: polish — tray icon, auto-start, painel de logs
 - Streaming VAD em vez de janela fixa de 5s (corta quando o usuário para de falar)
+- Subir Whisper de `base` pra `small` se alucinação PT-BR continuar incomodando
 
 ## Regras pro Claude Code
 1. Sempre ler o CLAUDE.md antes de começar

@@ -70,6 +70,18 @@ Intents conhecidas (com exemplos de frases):
   Ex: "desliga o computador" → {"intent":"system_shutdown","params":{"action":"shutdown"},"confidence":0.9,"destructive":true}
   Ex: "reinicia o pc" → {"intent":"system_shutdown","params":{"action":"restart"},"confidence":0.9,"destructive":true}
 
+- "screen_click" → params: {"x": <int>, "y": <int>, "button": "left|right|middle", "clicks": <int>}
+  Use SÓ quando o usuário mencionar coordenadas de tela explicitamente.
+  Ex: "clica em 500, 300" → {"intent":"screen_click","params":{"x":500,"y":300,"button":"left","clicks":1},"confidence":0.9,"destructive":false}
+
+- "screen_type" → params: {"text": "..."}
+  Use SÓ quando o usuário pedir pra digitar um texto literal na janela em foco.
+  Ex: "digita olá mundo" → {"intent":"screen_type","params":{"text":"olá mundo"},"confidence":0.9,"destructive":false}
+
+- "screen_screenshot" → params: {"path": "..." (opcional)}
+  Ex: "tira um print" → {"intent":"screen_screenshot","params":{},"confidence":0.95,"destructive":false}
+  Ex: "captura a tela" → {"intent":"screen_screenshot","params":{},"confidence":0.95,"destructive":false}
+
 - "conversation" → params: {"reply": "<resposta curta em português>"}
   Ex: "oi bolha" → {"intent":"conversation","params":{"reply":"Olá! Como posso te ajudar?"},"confidence":0.95,"destructive":false}
   Ex: "como você tá" → {"intent":"conversation","params":{"reply":"Tô bem, pronto pra ajudar!"},"confidence":0.9,"destructive":false}
@@ -86,7 +98,8 @@ Regras:
 5. NUNCA adicione texto fora do JSON. NUNCA use markdown. Apenas o JSON puro.
 6. app_name deve ser o nome do executável ou nome comum do programa (ex: "notepad", "chrome", "spotify").
 7. URLs devem ser completas com https:// quando possível.
-8. Paths de arquivo são relativos ao diretório do usuário, a menos que o usuário especifique caminho completo.\
+8. Paths de arquivo são relativos ao diretório do usuário, a menos que o usuário especifique caminho completo.
+9. "screen_click", "screen_type" e "screen_screenshot" são ÚLTIMO RECURSO — só use quando o usuário mencionar tela/coordenadas/print explicitamente. Para "abrir youtube", "abrir app", "pesquisar", etc., use as intents dedicadas.\
 """
 
 INTENT_USER_TEMPLATE = "O usuário disse: \"{texto}\""

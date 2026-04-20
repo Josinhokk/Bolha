@@ -9,7 +9,15 @@ Arquivos (Fase 4):
 - `browser.py` ✅ — URLs e pesquisas no Google
 - `system_cmd.py` ✅ — volume (pycaw), info (psutil), shutdown/restart/sleep
 - `permissions.py` ✅ — checa UAC/admin antes de ações que exigem elevação
-- `screen_control.py` ⏳ — PyAutoGUI (último recurso)
+- `screen_control.py` ✅ — PyAutoGUI (último recurso: click, type, screenshot)
+
+## screen_control — quando usar
+É o fallback quando o usuário pede algo que nenhum outro handler resolve. Três intents:
+- `screen_click` (x, y, button, clicks) — fail-safe aborta se o mouse for pro canto da tela.
+- `screen_type` (text, interval) — digita na janela em foco.
+- `screen_screenshot` (path opcional) — salva PNG em `data/screenshots/` por padrão.
+
+PyAutoGUI é opcional: sem ele, os handlers sobem em modo degradado e devolvem mensagem amigável.
 
 ## Como o system_cmd lida com admin
 - `system_info`: não precisa admin.

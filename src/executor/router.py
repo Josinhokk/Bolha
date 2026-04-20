@@ -50,6 +50,9 @@ class ActionRouter:
             "system_info": float(timeouts.get("system_cmd", 10)),
             "system_volume": float(timeouts.get("system_cmd", 10)),
             "system_shutdown": float(timeouts.get("system_cmd", 10)),
+            "screen_click": float(timeouts.get("screen_control", 8)),
+            "screen_type": float(timeouts.get("screen_control", 8)),
+            "screen_screenshot": float(timeouts.get("screen_control", 8)),
         }
 
         LOGGER.info(
